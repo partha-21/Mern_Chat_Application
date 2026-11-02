@@ -1,0 +1,59 @@
+# Dev stack with live reload:  docker compose -f docker-compose.dev.yml up
+#   edit files in ./backend or ./frontend -> the containers reload.
+#   App:       http://localhost:5173   API: http://localhost:5001
+#   MongoDB:   mongodb://localhost:27017  (works with MongoDB Compass)
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-dev-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "quit(db.adminCommand('ping').ok ? 0 : 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npx nodemon -L src/server.js"
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+    ports:
+      - "5001:5001"
+    environment:
+      NODE_ENV: development
+      PORT: 5001
+      MONGO_URI: mongodb://mongo:27017/chatapp
+      JWT_SECRET: ${JWT_SECRET:-dev_only_secret_change_me}
+      CLIENT_URL: http://localhost:5173
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: http://backend:5001
+      CHOKIDAR_USEPOLLING: "true" # file events don't cross Windows bind mounts
+    depends_on:
+      - backend
+
+volumes:
+  mongo-dev-data:
+  backend-node-modules:
+  frontend-node-modules:

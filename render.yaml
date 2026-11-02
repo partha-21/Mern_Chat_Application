@@ -1,0 +1,30 @@
+# Render Blueprint: one FREE web service that serves the API, the WebSockets
+# AND the React app (single origin => cookies just work).
+# Render dashboard -> New -> Blueprint -> pick this repo. You'll be asked for MONGO_URI.
+services:
+  - type: web
+    name: chatspace
+    runtime: node
+    plan: free
+    region: singapore # closest to India; pick the region nearest your users (keep Atlas near it)
+    # NODE_ENV=production makes `npm ci` skip devDependencies, but Vite is a
+    # devDependency, hence --include=dev for the FRONTEND build only.
+    buildCommand: npm --prefix frontend ci --include=dev && npm --prefix frontend run build && npm --prefix backend ci --omit=dev
+    startCommand: node backend/src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true # Render creates a random secret for you
+      - key: MONGO_URI
+        sync: false # paste your MongoDB Atlas connection string
+      # Optional (image messages + profile pictures): add these in the dashboard
+      #   CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+      # Optional: CLIENT_URL (only for the Vercel + Render setup; see DEPLOY.md)
